@@ -44,31 +44,7 @@ jobs:
       # rather than hardcoding a model that may not exist on the image.
       - name: Pick a simulator
         id: sim
-        run: |
-          set -euo pipefail
-          UDID="$(xcrun simctl list devices available -j | python3 -c '
-import json, re, sys
-
-candidates = []
-for runtime, devices in json.load(sys.stdin)["devices"].items():
-    match = re.search(r"iOS-(\d+)-(\d+)", runtime)
-    if not match:
-        continue
-    version = (int(match.group(1)), int(match.group(2)))
-    for device in devices:
-        if device.get("isAvailable") and device["name"].startswith("iPhone"):
-            candidates.append((version, device["name"], device["udid"]))
-
-candidates.sort()
-print(candidates[-1][2] if candidates else "")
-')"
-          if [ -z "$UDID" ]; then
-            echo "No iPhone simulator available on this runner image" >&2
-            xcrun simctl list devices available >&2
-            exit 1
-          fi
-          xcrun simctl list devices available | grep "$UDID"
-          echo "udid=$UDID" >> "$GITHUB_OUTPUT"
+        run: echo "udid=$(python3 Tools/pick-simulator.py)" >> "$GITHUB_OUTPUT"
 
       - name: Build and test
         run: |
