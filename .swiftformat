@@ -1,0 +1,12 @@
+--swiftversion 6.0
+--exclude Resources/foliate,Scriptorium.xcodeproj
+--indent 4
+--maxwidth 120
+--wraparguments before-first
+--wrapparameters before-first
+--wrapcollections before-first
+--closingparen balanced
+--commas inline
+--self remove
+--stripunusedargs closure-only
+--trimwhitespace always

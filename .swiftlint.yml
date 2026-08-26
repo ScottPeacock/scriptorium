@@ -1,0 +1,31 @@
+included:
+  - Sources
+  - Tests
+
+excluded:
+  - Resources/foliate
+
+disabled_rules:
+  - trailing_comma
+  - todo
+
+opt_in_rules:
+  - empty_count
+  - explicit_init
+  - first_where
+  - last_where
+  - redundant_nil_coalescing
+  - toggle_bool
+  - unneeded_parentheses_in_closure_argument
+
+line_length:
+  warning: 120
+  error: 160
+  ignores_comments: true
+
+type_body_length:
+  warning: 300
+
+identifier_name:
+  min_length: 2
+  excluded: [id, c, f, e, d, s]

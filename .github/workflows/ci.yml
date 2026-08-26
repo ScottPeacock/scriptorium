@@ -1,0 +1,54 @@
+name: CI
+
+on:
+  push:
+    branches: [main]
+  pull_request:
+
+concurrency:
+  group: ${{ github.workflow }}-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  build-and-test:
+    runs-on: macos-15
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Select Xcode
+        run: sudo xcode-select -s /Applications/Xcode_26.app
+
+      - name: Install XcodeGen
+        run: brew install xcodegen
+
+      - name: Generate project
+        run: xcodegen generate
+
+      - name: Cache SPM dependencies
+        uses: actions/cache@v4
+        with:
+          path: ~/Library/Developer/Xcode/DerivedData/**/SourcePackages
+          key: spm-${{ hashFiles('project.yml') }}
+          restore-keys: spm-
+
+      - name: Build and test
+        run: |
+          xcodebuild \
+            -project Scriptorium.xcodeproj \
+            -scheme Scriptorium \
+            -destination 'platform=iOS Simulator,name=iPhone 17' \
+            test | xcpretty && exit ${PIPESTATUS[0]}
+
+  lint:
+    runs-on: macos-15
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Install linters
+        run: brew install swiftlint swiftformat
+
+      - name: SwiftFormat (check only)
+        run: swiftformat --lint .
+
+      - name: SwiftLint
+        run: swiftlint --strict
