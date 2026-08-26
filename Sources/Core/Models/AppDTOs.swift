@@ -123,13 +123,15 @@ struct AppBookProgressResponse: Decodable, Sendable {
 struct AppLibrarySummary: Decodable, Sendable, Identifiable, Hashable {
     let id: Int64
     let name: String?
-    let bookCount: Int?
+    let icon: String?
+    let bookCount: Int
 }
 
 struct AppShelfSummary: Decodable, Sendable, Identifiable, Hashable {
     let id: Int64
     let name: String?
-    let bookCount: Int?
+    let icon: String?
+    let bookCount: Int
 }
 
 struct AppUserInfo: Decodable, Sendable {
@@ -151,5 +153,67 @@ struct AppUserInfo: Decodable, Sendable {
         canDownload = try c.decodeIfPresent(Bool.self, forKey: .canDownload) ?? false
         canAccessBookdrop = try c.decodeIfPresent(Bool.self, forKey: .canAccessBookdrop) ?? false
         maxFileUploadSizeMb = try c.decodeIfPresent(Int.self, forKey: .maxFileUploadSizeMb) ?? 0
+    }
+}
+
+struct AppMagicShelfSummary: Decodable, Sendable, Identifiable, Hashable {
+    let id: Int64
+    let name: String?
+    let icon: String?
+    let iconType: String?
+    let publicShelf: Bool?
+
+    private enum CodingKeys: String, CodingKey {
+        case id, name, icon, iconType
+        case publicShelf, isPublicShelf
+    }
+
+    init(from decoder: any Decoder) throws {
+        let c = try decoder.container(keyedBy: CodingKeys.self)
+        id = try c.decode(Int64.self, forKey: .id)
+        name = try c.decodeIfPresent(String.self, forKey: .name)
+        icon = try c.decodeIfPresent(String.self, forKey: .icon)
+        iconType = try c.decodeIfPresent(String.self, forKey: .iconType)
+        publicShelf = try c.decodeBoolEitherSpelling(.isPublicShelf, stripped: .publicShelf)
+    }
+}
+
+struct SeriesCoverBook: Decodable, Sendable, Hashable {
+    let bookId: Int64?
+    let coverUpdatedOn: Date?
+}
+
+/// Series are keyed by name, not id — the server has no series entity.
+struct AppSeriesSummary: Decodable, Sendable, Identifiable, Hashable {
+    var id: String {
+        seriesName
+    }
+
+    let seriesName: String
+    let bookCount: Int
+    let seriesTotal: Int?
+    let authors: [String]?
+    let booksRead: Int
+    let latestAddedOn: Date?
+    let coverBooks: [SeriesCoverBook]?
+}
+
+struct AppAuthorSummary: Decodable, Sendable, Identifiable, Hashable {
+    let id: Int64
+    let name: String?
+    let bookCount: Int
+    let hasPhoto: Bool?
+
+    private enum CodingKeys: String, CodingKey {
+        case id, name, bookCount
+        case hasPhoto
+    }
+
+    init(from decoder: any Decoder) throws {
+        let c = try decoder.container(keyedBy: CodingKeys.self)
+        id = try c.decode(Int64.self, forKey: .id)
+        name = try c.decodeIfPresent(String.self, forKey: .name)
+        bookCount = try c.decodeIfPresent(Int.self, forKey: .bookCount) ?? 0
+        hasPhoto = try c.decodeIfPresent(Bool.self, forKey: .hasPhoto)
     }
 }

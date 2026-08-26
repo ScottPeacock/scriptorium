@@ -1,30 +1,79 @@
 import Foundation
 import Observation
 
-/// Holds the signed-in account for the process. Persisting the account list and
-/// the multi-server switcher land with the rest of M1.
+/// Everything a signed-in session needs, assembled once so views can reach the
+/// service and cover loader without rebuilding clients per screen.
+struct ServerConnection: Sendable {
+    let account: ServerAccount
+    let user: AppUserInfo
+    let client: GrimmoryClient
+    let library: LibraryService
+    let covers: CoverLoader
+
+    init(account: ServerAccount, user: AppUserInfo, client: GrimmoryClient) {
+        self.account = account
+        self.user = user
+        self.client = client
+        library = LibraryService(client: client)
+        covers = CoverLoader(client: client, accountID: account.id)
+    }
+}
+
 @Observable
 @MainActor
 final class SessionModel {
     enum State {
+        case restoring
         case signedOut
-        case signedIn(ServerAccount, AppUserInfo)
+        case signedIn(ServerConnection)
     }
 
-    var state: State = .signedOut
+    private(set) var state: State = .restoring
+    private let accounts = AccountStore()
 
-    var account: ServerAccount? {
-        if case let .signedIn(account, _) = state {
-            return account
+    var connection: ServerConnection? {
+        if case let .signedIn(connection) = state {
+            return connection
         }
         return nil
     }
 
-    func signIn(account: ServerAccount, user: AppUserInfo) {
-        state = .signedIn(account, user)
+    /// Reconnects to the last-used server if its tokens are still in the
+    /// keychain. Nothing is validated here — the first authenticated request
+    /// will refresh or fail, and the UI handles that.
+    func restore() async {
+        guard let account = accounts.currentAccount else {
+            state = .signedOut
+            return
+        }
+        let store = TokenStore(account: account)
+        guard await store.load() != nil else {
+            state = .signedOut
+            return
+        }
+
+        let client = GrimmoryClient(baseURL: account.baseURL, tokenStore: store)
+        do {
+            let user: AppUserInfo = try await client.send(.currentUser)
+            state = .signedIn(ServerConnection(account: account, user: user, client: client))
+        } catch {
+            // Expired beyond refresh, or the server is unreachable. Either way
+            // the user starts at the connect screen.
+            state = .signedOut
+        }
     }
 
-    func signOut() {
+    func signIn(account: ServerAccount, user: AppUserInfo, client: GrimmoryClient) {
+        accounts.save(account)
+        state = .signedIn(ServerConnection(account: account, user: user, client: client))
+    }
+
+    func signOut() async {
+        if let connection {
+            await connection.covers.clearCache()
+            await TokenStore(account: connection.account).clear()
+            accounts.remove(connection.account)
+        }
         state = .signedOut
     }
 }

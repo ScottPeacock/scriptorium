@@ -70,7 +70,7 @@ final class AddServerViewModel {
         do {
             let token = try await auth.login(baseURL: baseURL, username: username, password: password)
 
-            let account = ServerAccount(
+            var account = ServerAccount(
                 displayName: baseURL.host() ?? "Grimmory",
                 baseURL: baseURL,
                 username: username
@@ -80,13 +80,31 @@ final class AddServerViewModel {
 
             let client = GrimmoryClient(baseURL: baseURL, tokenStore: store)
             let user: AppUserInfo = try await client.send(.currentUser)
+            // /api/v1/version is authenticated, so this is the first chance to
+            // record what the server is running.
+            account.serverVersion = try? await serverVersion(client: client)
 
             password = ""
-            session.signIn(account: account, user: user)
+            session.signIn(account: account, user: user, client: client)
         } catch {
             errorMessage = (error as? APIError)?.localizedDescription ?? error.localizedDescription
             phase = previousPhase
         }
+    }
+
+    private func serverVersion(client: GrimmoryClient) async throws -> String? {
+        let data = try await client.sendForData(.version)
+        // The shape of this payload is unconfirmed against a live server, so
+        // read it leniently rather than failing sign-in over a cosmetic field.
+        guard let object = try? JSONSerialization.jsonObject(with: data) as? [String: Any] else {
+            return String(data: data, encoding: .utf8)?.trimmingCharacters(in: .whitespacesAndNewlines)
+        }
+        for key in ["version", "currentVersion", "appVersion", "build"] {
+            if let value = object[key] as? String {
+                return value
+            }
+        }
+        return nil
     }
 
     func editAddress() {
