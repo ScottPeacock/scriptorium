@@ -71,7 +71,7 @@ enum GrimmoryEndpoint {
             [
                 .init(name: "query", value: query),
                 .init(name: "page", value: "\(page)"),
-                .init(name: "size", value: "\(size)"),
+                .init(name: "size", value: "\(size)")
             ]
         default:
             []

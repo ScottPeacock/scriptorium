@@ -25,8 +25,13 @@ struct ServerAccount: Codable, Sendable, Identifiable, Hashable {
         self.serverVersion = serverVersion
     }
 
-    var accessTokenKey: String { "\(id.uuidString).access" }
-    var refreshTokenKey: String { "\(id.uuidString).refresh" }
+    var accessTokenKey: String {
+        "\(id.uuidString).access"
+    }
+
+    var refreshTokenKey: String {
+        "\(id.uuidString).refresh"
+    }
 }
 
 extension ServerAccount {

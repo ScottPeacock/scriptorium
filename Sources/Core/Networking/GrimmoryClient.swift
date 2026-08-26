@@ -23,7 +23,7 @@ actor GrimmoryClient {
 
     func send<T: Decodable & Sendable>(
         _ endpoint: GrimmoryEndpoint,
-        body: (some Encodable)? = Optional<Never>.none,
+        body: (some Encodable)? = Never?.none,
         as _: T.Type = T.self
     ) async throws -> T {
         let data = try await sendForData(endpoint, body: body)
@@ -37,7 +37,7 @@ actor GrimmoryClient {
     @discardableResult
     func sendForData(
         _ endpoint: GrimmoryEndpoint,
-        body: (some Encodable)? = Optional<Never>.none
+        body: (some Encodable)? = Never?.none
     ) async throws -> Data {
         let (data, response) = try await perform(endpoint, body: body, allowRefresh: true)
         try Self.validate(response: response, data: data, endpoint: endpoint)

@@ -23,7 +23,7 @@ struct ServerProbe: Sendable {
         _ = try await get(.healthcheck, baseURL: baseURL)
         let data = try await get(.publicSettings, baseURL: baseURL)
         do {
-            return Result(settings: try JSONCoding.decoder.decode(PublicSettings.self, from: data))
+            return try Result(settings: JSONCoding.decoder.decode(PublicSettings.self, from: data))
         } catch {
             throw APIError.notGrimmory(status: 200)
         }

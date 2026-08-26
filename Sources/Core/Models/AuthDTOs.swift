@@ -42,7 +42,9 @@ struct PublicSettings: Decodable, Sendable {
     }
 
     /// True when the app can offer a username/password form.
-    var supportsLocalLogin: Bool { !oidcForceOnlyMode }
+    var supportsLocalLogin: Bool {
+        !oidcForceOnlyMode
+    }
 }
 
 /// `org.booklore.model.dto.request.BookFileProgress`

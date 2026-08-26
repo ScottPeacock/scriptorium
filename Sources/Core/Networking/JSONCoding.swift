@@ -5,15 +5,15 @@ enum JSONCoding {
     /// ("2026-08-26T18:32:00.543Z") and `LocalDate` as "2026-08-26".
     /// ISO8601DateFormatter with fractional seconds rejects the latter and
     /// vice versa, so we try each in turn.
-    // ISO8601DateFormatter is not Sendable, but these are configured once and
-    // then only read -- parsing is thread-safe.
-    nonisolated(unsafe) private static let fractional: ISO8601DateFormatter = {
+    /// ISO8601DateFormatter is not Sendable, but these are configured once and
+    /// then only read -- parsing is thread-safe.
+    private nonisolated(unsafe) static let fractional: ISO8601DateFormatter = {
         let f = ISO8601DateFormatter()
         f.formatOptions = [.withInternetDateTime, .withFractionalSeconds]
         return f
     }()
 
-    nonisolated(unsafe) private static let whole: ISO8601DateFormatter = {
+    private nonisolated(unsafe) static let whole: ISO8601DateFormatter = {
         let f = ISO8601DateFormatter()
         f.formatOptions = [.withInternetDateTime]
         return f

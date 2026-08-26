@@ -1,6 +1,6 @@
 import Foundation
-import Testing
 @testable import Scriptorium
+import Testing
 
 @Suite("Payload decoding")
 struct DecodingTests {
@@ -67,7 +67,10 @@ struct DecodingTests {
 
     @Test("AppUserInfo decodes the Lombok-stripped 'admin' key")
     func userInfoStrippedKey() throws {
-        let json = Data(#"{"admin":true,"canUpload":false,"canDownload":true,"canAccessBookdrop":false,"maxFileUploadSizeMb":100}"#.utf8)
+        let json = Data(
+            #"{"admin":true,"canUpload":false,"canDownload":true,"canAccessBookdrop":false,"maxFileUploadSizeMb":100}"#
+                .utf8
+        )
         let user = try JSONCoding.decoder.decode(AppUserInfo.self, from: json)
         #expect(user.isAdmin)
         #expect(user.canDownload)
@@ -76,14 +79,20 @@ struct DecodingTests {
 
     @Test("AppUserInfo also decodes the unstripped 'isAdmin' key")
     func userInfoUnstrippedKey() throws {
-        let json = Data(#"{"isAdmin":true,"canUpload":false,"canDownload":false,"canAccessBookdrop":false,"maxFileUploadSizeMb":0}"#.utf8)
+        let json = Data(
+            #"{"isAdmin":true,"canUpload":false,"canDownload":false,"canAccessBookdrop":false,"maxFileUploadSizeMb":0}"#
+                .utf8
+        )
         let user = try JSONCoding.decoder.decode(AppUserInfo.self, from: json)
         #expect(user.isAdmin)
     }
 
     @Test("AppBookFile maps the reserved 'extension' key and both boolean spellings")
     func bookFile() throws {
-        let json = Data(#"{"id":9,"bookId":3,"fileName":"book.epub","extension":"epub","book":true,"primary":true,"folderBased":false}"#.utf8)
+        let json = Data(#"""
+        {"id":9,"bookId":3,"fileName":"book.epub","extension":"epub",
+         "book":true,"primary":true,"folderBased":false}
+        """#.utf8)
         let file = try JSONCoding.decoder.decode(AppBookFile.self, from: json)
         #expect(file.fileExtension == "epub")
         #expect(file.isPrimary == true)
@@ -103,7 +112,10 @@ struct DecodingTests {
 
     @Test("EPUB progress carries the CFI and spine href")
     func epubProgress() throws {
-        let json = Data(#"{"cfi":"epubcfi(/6/14!/4/2/2[c01]/2/1:0)","href":"chapter1.xhtml","percentage":0.42,"updatedAt":"2026-08-26T18:32:00.543Z"}"#.utf8)
+        let json = Data(#"""
+        {"cfi":"epubcfi(/6/14!/4/2/2[c01]/2/1:0)","href":"chapter1.xhtml",
+         "percentage":0.42,"updatedAt":"2026-08-26T18:32:00.543Z"}
+        """#.utf8)
         let progress = try JSONCoding.decoder.decode(EpubProgress.self, from: json)
         #expect(progress.cfi?.hasPrefix("epubcfi(") == true)
         #expect(progress.href == "chapter1.xhtml")

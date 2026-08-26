@@ -14,7 +14,9 @@ final class SessionModel {
     var state: State = .signedOut
 
     var account: ServerAccount? {
-        if case let .signedIn(account, _) = state { return account }
+        if case let .signedIn(account, _) = state {
+            return account
+        }
         return nil
     }
 

@@ -1,6 +1,6 @@
 import Foundation
-import Testing
 @testable import Scriptorium
+import Testing
 
 @Suite("Server address normalisation")
 struct ServerAccountTests {

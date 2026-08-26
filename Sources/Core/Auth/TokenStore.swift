@@ -25,7 +25,9 @@ actor TokenStore {
     }
 
     func load() -> Tokens? {
-        if let cached { return cached }
+        if let cached {
+            return cached
+        }
         guard let access = keychain.get(account.accessTokenKey) else { return nil }
         let tokens = Tokens(
             access: access,

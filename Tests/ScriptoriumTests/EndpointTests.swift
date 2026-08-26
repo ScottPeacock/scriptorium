@@ -1,6 +1,6 @@
 import Foundation
-import Testing
 @testable import Scriptorium
+import Testing
 
 @Suite("Endpoint URL construction")
 struct EndpointTests {
@@ -37,7 +37,7 @@ struct EndpointTests {
 
     @Test("A base URL with a subpath is preserved, not overwritten")
     func subpathBase() throws {
-        let proxied = URL(string: "https://example.com/grimmory")!
+        let proxied = try #require(URL(string: "https://example.com/grimmory"))
         let url = try #require(GrimmoryEndpoint.healthcheck.url(base: proxied))
         #expect(url.absoluteString == "https://example.com/grimmory/api/v1/healthcheck")
     }

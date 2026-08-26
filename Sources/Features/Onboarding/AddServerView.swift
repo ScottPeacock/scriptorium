@@ -62,7 +62,6 @@ struct AddServerView: View {
         }
     }
 
-    @ViewBuilder
     private func credentialsSection(_ settings: AddServerViewModel.PublicSettingsSnapshot?) -> some View {
         Section("Sign in") {
             TextField("Username", text: $model.username)
