@@ -42,8 +42,17 @@ targets:
         CFBundleShortVersionString: $(MARKETING_VERSION)
         CFBundleVersion: $(CURRENT_PROJECT_VERSION)
         UILaunchScreen: {}
+        # iPhone: no upside-down. Modern iPhones don't rotate to it anyway,
+        # and a book flipping over in your hands is not a feature.
         UISupportedInterfaceOrientations:
           - UIInterfaceOrientationPortrait
+          - UIInterfaceOrientationLandscapeLeft
+          - UIInterfaceOrientationLandscapeRight
+        # iPad: App Store Connect rejects an iPad-capable bundle that doesn't
+        # support all four, because multitasking can put the app in any of them.
+        UISupportedInterfaceOrientations~ipad:
+          - UIInterfaceOrientationPortrait
+          - UIInterfaceOrientationPortraitUpsideDown
           - UIInterfaceOrientationLandscapeLeft
           - UIInterfaceOrientationLandscapeRight
         # Self-hosted servers commonly run plain HTTP on a LAN address.
