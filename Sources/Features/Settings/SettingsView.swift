@@ -24,6 +24,22 @@ struct SettingsView: View {
                 }
 
                 Section {
+                    LabeledContent("Waiting to sync", value: syncLabel)
+                    if connection.progress.pendingCount > 0 {
+                        Button("Sync now") {
+                            Task { await connection.progress.flush() }
+                        }
+                    }
+                    if connection.progress.pendingCount > 0, let error = connection.progress.lastError {
+                        Text(error).font(.footnote).foregroundStyle(.secondary)
+                    }
+                } header: {
+                    Text("Reading positions")
+                } footer: {
+                    Text("Positions are saved here first, then sent to your server when it's reachable.")
+                }
+
+                Section {
                     LabeledContent("Downloaded books", value: downloadsSize)
                     LabeledContent("Cached covers", value: formattedSize)
                     Button("Clear cover cache") {
@@ -64,6 +80,14 @@ struct SettingsView: View {
             }
             .task { await refreshCacheSize() }
         }
+    }
+
+    private var syncLabel: String {
+        let pending = connection.progress.pendingCount
+        if pending == 0 {
+            return connection.progress.isOnline ? "Up to date" : "Up to date (offline)"
+        }
+        return "\(pending) change\(pending == 1 ? "" : "s")"
     }
 
     private var downloadsSize: String {

@@ -10,3 +10,6 @@
 --self remove
 --stripunusedargs closure-only
 --trimwhitespace always
+# Conflicts with SwiftLint's opening_brace rule, which wants the brace on the
+# same line as the condition. SwiftLint wins; keep conditions short instead.
+--disable wrapMultilineStatementBraces

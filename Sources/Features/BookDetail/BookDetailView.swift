@@ -8,6 +8,9 @@ struct BookDetailView: View {
     @State private var detail: AppBookDetail?
     @State private var errorMessage: String?
     @State private var isLoading = true
+    @State private var status: ReadStatus?
+    @State private var rating: Int?
+    @State private var ratingError: String?
 
     var body: some View {
         ScrollView {
@@ -43,6 +46,8 @@ struct BookDetailView: View {
                     Text(description).font(.callout)
                 }
             }
+
+            statusAndRating(book)
 
             detailsGrid(book)
         }
@@ -118,7 +123,7 @@ struct BookDetailView: View {
     @ViewBuilder
     private func readerDestination(book: AppBookDetail, connection: ServerConnection) -> some View {
         if let url = connection.downloads.localURL(for: book.id) {
-            ReaderView(book: book, bookURL: url, client: connection.client)
+            ReaderView(book: book, bookURL: url, progress: connection.progress)
         } else {
             ContentUnavailableView(
                 "Download missing",
@@ -173,6 +178,61 @@ struct BookDetailView: View {
                 }
             }
             Spacer(minLength: 0)
+        }
+    }
+
+    @ViewBuilder
+    private func statusAndRating(_ book: AppBookDetail) -> some View {
+        if let connection = session.connection {
+            VStack(alignment: .leading, spacing: 12) {
+                Picker("Status", selection: Binding(
+                    get: { status ?? ReadStatus(serverValue: book.readStatus) ?? .unread },
+                    set: { newValue in
+                        status = newValue
+                        connection.progress.record(status: newValue, bookId: book.id)
+                    }
+                )) {
+                    ForEach(ReadStatus.allCases) { Text($0.label).tag($0) }
+                }
+                .pickerStyle(.menu)
+
+                HStack(spacing: 6) {
+                    Text("Rating").foregroundStyle(.secondary)
+                    Spacer()
+                    ForEach(1 ... 5, id: \.self) { star in
+                        let current = rating ?? book.personalRating ?? 0
+                        Button {
+                            rating = star
+                            Task { await rate(star, bookId: book.id, connection: connection) }
+                        } label: {
+                            Image(systemName: star <= current ? "star.fill" : "star")
+                                .foregroundStyle(star <= current ? .yellow : .secondary)
+                        }
+                        .buttonStyle(.plain)
+                    }
+                }
+                .font(.callout)
+
+                if let ratingError {
+                    Text(ratingError).font(.footnote).foregroundStyle(.red)
+                }
+            }
+        }
+    }
+
+    /// Ratings aren't queued: they're a one-tap preference, not something you'd
+    /// lose work over, and a stale one overwriting a newer one would be worse
+    /// than the tap simply not taking.
+    private func rate(_ value: Int, bookId: Int64, connection: ServerConnection) async {
+        do {
+            _ = try await connection.client.sendForData(
+                .updateRating(bookId: bookId),
+                body: UpdateRatingBody(rating: value)
+            )
+            ratingError = nil
+        } catch {
+            rating = nil
+            ratingError = "Couldn't save that rating."
         }
     }
 

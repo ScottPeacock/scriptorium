@@ -11,6 +11,7 @@ struct ServerConnection {
     let library: LibraryService
     let covers: CoverLoader
     let downloads: DownloadManager
+    let progress: ProgressSync
 
     init(account: ServerAccount, user: AppUserInfo, client: GrimmoryClient) throws {
         self.account = account
@@ -18,11 +19,10 @@ struct ServerConnection {
         self.client = client
         library = LibraryService(client: client)
         covers = CoverLoader(client: client, accountID: account.id)
-        downloads = try DownloadManager(
-            client: client,
-            database: Database(accountID: account.id),
-            accountID: account.id
-        )
+        // One database per account, shared by downloads and the sync queue.
+        let database = try Database(accountID: account.id)
+        downloads = DownloadManager(client: client, database: database, accountID: account.id)
+        progress = ProgressSync(client: client, database: database)
     }
 }
 

@@ -38,6 +38,28 @@ struct Database: Sendable {
             }
         }
 
+        migrator.registerMigration("createPendingWrites") { db in
+            // One row per book: a newer position supersedes an older one
+            // outright, so there is nothing to merge and no backlog to replay
+            // in order.
+            try db.create(table: "pendingProgress") { table in
+                table.primaryKey("bookId", .integer)
+                table.column("bookFileId", .integer).notNull()
+                table.column("cfi", .text)
+                table.column("href", .text)
+                table.column("fraction", .double).notNull()
+                table.column("updatedAt", .datetime).notNull()
+                table.column("attempts", .integer).notNull().defaults(to: 0)
+            }
+
+            try db.create(table: "pendingStatus") { table in
+                table.primaryKey("bookId", .integer)
+                table.column("status", .text).notNull()
+                table.column("updatedAt", .datetime).notNull()
+                table.column("attempts", .integer).notNull().defaults(to: 0)
+            }
+        }
+
         return migrator
     }
 }

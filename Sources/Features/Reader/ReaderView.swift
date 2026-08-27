@@ -6,8 +6,8 @@ struct ReaderView: View {
     @State private var showSettings = false
     @Environment(\.dismiss) private var dismiss
 
-    init(book: AppBookDetail, bookURL: URL, client: GrimmoryClient) {
-        _model = State(wrappedValue: ReaderViewModel(book: book, bookURL: bookURL, client: client))
+    init(book: AppBookDetail, bookURL: URL, progress: ProgressSync) {
+        _model = State(wrappedValue: ReaderViewModel(book: book, bookURL: bookURL, progress: progress))
     }
 
     var body: some View {
@@ -79,6 +79,31 @@ struct ReaderView: View {
         .sheet(isPresented: $showSettings) {
             ReaderSettingsSheet(settings: $model.settings)
         }
+        .confirmationDialog(
+            "Continue from a different position?",
+            isPresented: Binding(
+                get: { model.conflict != nil },
+                set: {
+                    if !$0 {
+                        model.dismissConflict()
+                    }
+                }
+            ),
+            titleVisibility: .visible
+        ) {
+            if let conflict = model.conflict {
+                Button("Go to \(Int(conflict.otherFraction * 100))%") {
+                    model.jumpToConflictPosition()
+                }
+            }
+            Button("Stay here", role: .cancel) { model.dismissConflict() }
+        } message: {
+            if let conflict = model.conflict {
+                Text(conflict.otherIsNewer
+                    ? "Another device has a newer position in this book."
+                    : "This device has an unsynced position from earlier.")
+            }
+        }
         .animation(.easeInOut(duration: 0.2), value: model.showChrome)
         .task {
             // Reading is the one screen where the screen dimming mid-page is
@@ -92,11 +117,14 @@ struct ReaderView: View {
 
     private var footer: some View {
         VStack(spacing: 6) {
-            if let syncError = model.syncError {
-                Label(syncError, systemImage: "arrow.triangle.2.circlepath.slash")
-                    .font(.caption2)
-                    .foregroundStyle(.secondary)
-                    .lineLimit(1)
+            if model.pendingCount > 0 {
+                Label(
+                    model.isOnline ? "Saving your place…" : "Offline — your place is saved on this device",
+                    systemImage: model.isOnline ? "arrow.triangle.2.circlepath" : "wifi.slash"
+                )
+                .font(.caption2)
+                .foregroundStyle(.secondary)
+                .lineLimit(1)
             }
 
             Slider(
