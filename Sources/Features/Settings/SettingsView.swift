@@ -24,6 +24,7 @@ struct SettingsView: View {
                 }
 
                 Section {
+                    LabeledContent("Downloaded books", value: downloadsSize)
                     LabeledContent("Cached covers", value: formattedSize)
                     Button("Clear cover cache") {
                         Task {
@@ -63,6 +64,13 @@ struct SettingsView: View {
             }
             .task { await refreshCacheSize() }
         }
+    }
+
+    private var downloadsSize: String {
+        let bytes = connection.downloads.totalBytes
+        let count = connection.downloads.downloads.count
+        let size = ByteCountFormatter.string(fromByteCount: bytes, countStyle: .file)
+        return count == 0 ? "None" : "\(count) · \(size)"
     }
 
     private var formattedSize: String {

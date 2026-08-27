@@ -44,6 +44,89 @@ actor GrimmoryClient {
         return data
     }
 
+    /// Streams a file to disk, reporting bytes as they arrive.
+    ///
+    /// Deliberately not a background `URLSession`: v1 downloads EPUBs, which
+    /// are a few megabytes, and a streaming foreground transfer keeps the
+    /// progress reporting simple. Audiobooks (v2) will need the real thing.
+    func downloadFile(
+        _ endpoint: GrimmoryEndpoint,
+        to destination: URL,
+        progress: @escaping @Sendable (Int64, Int64) -> Void
+    ) async throws {
+        do {
+            try await streamDownload(endpoint, to: destination, allowRefresh: true, progress: progress)
+        } catch {
+            // Never leave a partial file behind pretending to be a book.
+            try? FileManager.default.removeItem(at: destination)
+            throw error
+        }
+    }
+
+    private func streamDownload(
+        _ endpoint: GrimmoryEndpoint,
+        to destination: URL,
+        allowRefresh: Bool,
+        progress: @escaping @Sendable (Int64, Int64) -> Void
+    ) async throws {
+        var request = try buildRequest(endpoint, body: Never?.none)
+        guard let tokens = await currentTokens() else { throw APIError.unauthorized }
+        request.setValue("Bearer \(tokens.access)", forHTTPHeaderField: "Authorization")
+
+        let (stream, response): (URLSession.AsyncBytes, URLResponse)
+        do {
+            (stream, response) = try await session.bytes(for: request)
+        } catch let error as URLError {
+            throw APIError.from(urlError: error)
+        }
+
+        guard let http = response as? HTTPURLResponse else { throw APIError.notGrimmory(status: -1) }
+
+        if http.statusCode == 401, allowRefresh {
+            _ = try await refreshTokens()
+            return try await streamDownload(endpoint, to: destination, allowRefresh: false, progress: progress)
+        }
+        guard (200 ..< 300).contains(http.statusCode) else {
+            throw http.statusCode == 403 ? APIError.forbidden : APIError.server(
+                status: http.statusCode,
+                message: nil
+            )
+        }
+
+        let expected = http.expectedContentLength
+        let fileManager = FileManager.default
+        try? fileManager.removeItem(at: destination)
+        try fileManager.createDirectory(
+            at: destination.deletingLastPathComponent(),
+            withIntermediateDirectories: true
+        )
+        guard fileManager.createFile(atPath: destination.path, contents: nil) else {
+            throw APIError.decoding("Couldn't create \(destination.lastPathComponent)")
+        }
+
+        let handle = try FileHandle(forWritingTo: destination)
+        defer { try? handle.close() }
+
+        var buffer = Data()
+        buffer.reserveCapacity(262_144)
+        var written: Int64 = 0
+
+        for try await byte in stream {
+            buffer.append(byte)
+            if buffer.count >= 262_144 {
+                try handle.write(contentsOf: buffer)
+                written += Int64(buffer.count)
+                buffer.removeAll(keepingCapacity: true)
+                progress(written, expected)
+            }
+        }
+        if !buffer.isEmpty {
+            try handle.write(contentsOf: buffer)
+            written += Int64(buffer.count)
+        }
+        progress(written, expected)
+    }
+
     // MARK: - Request plumbing
 
     private func perform(

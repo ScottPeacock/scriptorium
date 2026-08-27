@@ -21,6 +21,9 @@ struct BrowseView: View {
                     NavigationLink(value: BrowseRoute.series) {
                         Label("Series", systemImage: "square.stack")
                     }
+                    NavigationLink(value: BrowseRoute.downloaded) {
+                        Label("Downloaded", systemImage: "arrow.down.circle")
+                    }
                 }
 
                 if !libraries.isEmpty {
@@ -115,6 +118,8 @@ struct BrowseView: View {
             }
         case .series:
             SeriesListView(connection: connection)
+        case .downloaded:
+            DownloadsView(connection: connection)
         case let .seriesBooks(name):
             let service = connection.library
             BookGridView(
@@ -162,6 +167,7 @@ struct BrowseView: View {
 
 enum BrowseRoute: Hashable {
     case allBooks
+    case downloaded
     case library(Int64, String)
     case shelf(Int64, String)
     case magicShelf(Int64, String)

@@ -25,8 +25,12 @@ targets:
     platform: iOS
     sources:
       - path: Sources
-      - path: Resources
-        buildPhase: resources
+      # Folder references, so foliate's vendor/ subdirectory survives into the
+      # bundle — the ES module imports depend on the directory layout.
+      - path: Resources/foliate
+        type: folder
+      - path: Resources/reader
+        type: folder
     dependencies:
       - package: GRDB
     info:

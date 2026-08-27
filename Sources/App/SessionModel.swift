@@ -3,19 +3,26 @@ import Observation
 
 /// Everything a signed-in session needs, assembled once so views can reach the
 /// service and cover loader without rebuilding clients per screen.
-struct ServerConnection: Sendable {
+@MainActor
+struct ServerConnection {
     let account: ServerAccount
     let user: AppUserInfo
     let client: GrimmoryClient
     let library: LibraryService
     let covers: CoverLoader
+    let downloads: DownloadManager
 
-    init(account: ServerAccount, user: AppUserInfo, client: GrimmoryClient) {
+    init(account: ServerAccount, user: AppUserInfo, client: GrimmoryClient) throws {
         self.account = account
         self.user = user
         self.client = client
         library = LibraryService(client: client)
         covers = CoverLoader(client: client, accountID: account.id)
+        downloads = try DownloadManager(
+            client: client,
+            database: Database(accountID: account.id),
+            accountID: account.id
+        )
     }
 }
 
@@ -55,7 +62,7 @@ final class SessionModel {
         let client = GrimmoryClient(baseURL: account.baseURL, tokenStore: store)
         do {
             let user: AppUserInfo = try await client.send(.currentUser)
-            state = .signedIn(ServerConnection(account: account, user: user, client: client))
+            state = try .signedIn(ServerConnection(account: account, user: user, client: client))
         } catch {
             // Expired beyond refresh, or the server is unreachable. Either way
             // the user starts at the connect screen.
@@ -63,9 +70,9 @@ final class SessionModel {
         }
     }
 
-    func signIn(account: ServerAccount, user: AppUserInfo, client: GrimmoryClient) {
+    func signIn(account: ServerAccount, user: AppUserInfo, client: GrimmoryClient) throws {
         accounts.save(account)
-        state = .signedIn(ServerConnection(account: account, user: user, client: client))
+        state = try .signedIn(ServerConnection(account: account, user: user, client: client))
     }
 
     func signOut() async {

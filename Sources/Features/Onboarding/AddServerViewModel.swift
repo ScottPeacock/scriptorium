@@ -85,7 +85,7 @@ final class AddServerViewModel {
             account.serverVersion = try? await serverVersion(client: client)
 
             password = ""
-            session.signIn(account: account, user: user, client: client)
+            try session.signIn(account: account, user: user, client: client)
         } catch {
             errorMessage = (error as? APIError)?.localizedDescription ?? error.localizedDescription
             phase = previousPhase

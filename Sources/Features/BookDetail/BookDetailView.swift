@@ -35,13 +35,7 @@ struct BookDetailView: View {
         VStack(alignment: .leading, spacing: 20) {
             header(book)
 
-            // The reader arrives at M4; downloads at M3.
-            Button {} label: {
-                Label("Read", systemImage: "book")
-                    .frame(maxWidth: .infinity)
-            }
-            .buttonStyle(.borderedProminent)
-            .disabled(true)
+            actions(book)
 
             if let description = book.description, !description.isEmpty {
                 VStack(alignment: .leading, spacing: 6) {
@@ -53,6 +47,93 @@ struct BookDetailView: View {
             detailsGrid(book)
         }
         .padding()
+    }
+
+    @ViewBuilder
+    private func actions(_ book: AppBookDetail) -> some View {
+        if let connection = session.connection {
+            actionStack(book: book, connection: connection)
+        }
+    }
+
+    @ViewBuilder
+    private func actionStack(book: AppBookDetail, connection: ServerConnection) -> some View {
+        let downloads = connection.downloads
+        let status = downloads.status(for: book.id)
+
+        VStack(spacing: 10) {
+            switch status {
+            case .downloaded:
+                NavigationLink {
+                    readerDestination(book: book, connection: connection)
+                } label: {
+                    Label("Read", systemImage: "book")
+                        .frame(maxWidth: .infinity)
+                }
+                .buttonStyle(.borderedProminent)
+                .disabled(!isReadable(book) || downloads.localURL(for: book.id) == nil)
+
+                Button("Remove download", role: .destructive) {
+                    downloads.remove(bookId: book.id)
+                }
+                .font(.footnote)
+
+            case let .downloading(fraction):
+                if let fraction {
+                    ProgressView(value: fraction)
+                } else {
+                    ProgressView()
+                }
+                Button("Cancel") { downloads.cancel(bookId: book.id) }
+                    .font(.footnote)
+
+            case .notDownloaded, .failed:
+                Button {
+                    downloads.download(book)
+                } label: {
+                    Label("Download to read", systemImage: "arrow.down.circle")
+                        .frame(maxWidth: .infinity)
+                }
+                .buttonStyle(.borderedProminent)
+                .disabled(!connection.user.canDownload)
+
+                if case let .failed(message) = status {
+                    Text(message).font(.footnote).foregroundStyle(.red)
+                } else if !connection.user.canDownload {
+                    Text("Your account doesn't have permission to download books.")
+                        .font(.footnote)
+                        .foregroundStyle(.secondary)
+                }
+            }
+
+            if !isReadable(book), let type = book.primaryFileType {
+                Text("Scriptorium reads EPUB so far — this is \(type.uppercased()).")
+                    .font(.footnote)
+                    .foregroundStyle(.secondary)
+                    .multilineTextAlignment(.center)
+            }
+        }
+    }
+
+    @ViewBuilder
+    private func readerDestination(book: AppBookDetail, connection: ServerConnection) -> some View {
+        if let url = connection.downloads.localURL(for: book.id) {
+            ReaderView(book: book, bookURL: url, client: connection.client)
+        } else {
+            ContentUnavailableView(
+                "Download missing",
+                systemImage: "arrow.down.circle",
+                description: Text("The file is no longer on this device. Download it again.")
+            )
+        }
+    }
+
+    /// v1 reads EPUB only; other formats download but can't be opened yet.
+    private func isReadable(_ book: AppBookDetail) -> Bool {
+        if (book.primaryFileType ?? "").lowercased().contains("epub") {
+            return true
+        }
+        return book.fileTypes?.contains { $0.lowercased().contains("epub") } ?? false
     }
 
     private func header(_ book: AppBookDetail) -> some View {
