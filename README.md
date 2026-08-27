@@ -18,6 +18,7 @@ it talks to your server and nothing else.
 - Browses your libraries, shelves, smart shelves, series and authors, with search
 - Downloads books to read offline
 - Reads EPUBs — paginated or scrolling, light/sepia/dark, adjustable type
+- Follows your system appearance, or stays light or dark on its own
 - Keeps your place in sync, and keeps it safe when the server isn't reachable
 
 Reading position is the part worth explaining. Grimmory stores EPUB progress as

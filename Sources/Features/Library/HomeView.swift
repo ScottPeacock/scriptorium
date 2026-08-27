@@ -26,13 +26,13 @@ struct HomeView: View {
                 } else {
                     VStack(alignment: .leading, spacing: 28) {
                         if !continueReading.isEmpty {
-                            BookRow(title: "Continue reading", books: continueReading)
+                            BookSection(title: "Continue reading", books: continueReading)
                         }
                         if !recentlyAdded.isEmpty {
-                            BookRow(title: "Recently added", books: recentlyAdded)
+                            BookSection(title: "Recently added", books: recentlyAdded)
                         }
                         if !fromLibrary.isEmpty {
-                            BookRow(title: "From your library", books: fromLibrary)
+                            BookSection(title: "From your library", books: fromLibrary)
                         }
                         if continueReading.isEmpty, recentlyAdded.isEmpty, fromLibrary.isEmpty {
                             ContentUnavailableView(
@@ -70,7 +70,7 @@ struct HomeView: View {
             // Fall back to the newest books overall, which has no such window.
             if continueReading.isEmpty, recentlyAdded.isEmpty {
                 var query = BookQuery()
-                query.size = 12
+                query.size = 30
                 query.sort = .addedOn
                 fromLibrary = try await service.books(query).content
             } else {
@@ -83,29 +83,30 @@ struct HomeView: View {
     }
 }
 
-struct BookRow: View {
+/// A titled block of covers laid out in a grid, so Home scrolls down as one
+/// page rather than sideways per section.
+struct BookSection: View {
     let title: String
     let books: [AppBookSummary]
 
+    private let columns = [GridItem(.adaptive(minimum: 104, maximum: 160), spacing: 16)]
+
     var body: some View {
-        VStack(alignment: .leading, spacing: 10) {
+        VStack(alignment: .leading, spacing: 12) {
             Text(title)
                 .font(.title3)
                 .fontWeight(.semibold)
                 .padding(.horizontal)
 
-            ScrollView(.horizontal) {
-                LazyHStack(alignment: .top, spacing: 14) {
-                    ForEach(books) { book in
-                        NavigationLink(value: book) {
-                            BookGridCell(book: book).frame(width: 108)
-                        }
-                        .buttonStyle(.plain)
+            LazyVGrid(columns: columns, spacing: 20) {
+                ForEach(books) { book in
+                    NavigationLink(value: book) {
+                        BookGridCell(book: book)
                     }
+                    .buttonStyle(.plain)
                 }
-                .padding(.horizontal)
             }
-            .scrollIndicators(.hidden)
+            .padding(.horizontal)
         }
     }
 }

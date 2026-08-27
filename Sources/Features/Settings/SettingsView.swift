@@ -4,12 +4,24 @@ struct SettingsView: View {
     let connection: ServerConnection
 
     @Environment(SessionModel.self) private var session
+    @AppStorage(AppAppearance.storageKey) private var appearance = AppAppearance.system
     @State private var cacheSize: Int64 = 0
     @State private var showSignOutConfirmation = false
 
     var body: some View {
         NavigationStack {
             List {
+                Section {
+                    Picker("Appearance", selection: $appearance) {
+                        ForEach(AppAppearance.allCases) { Text($0.label).tag($0) }
+                    }
+                    .pickerStyle(.segmented)
+                } header: {
+                    Text("Appearance")
+                } footer: {
+                    Text("The reader has its own page theme, set while you're reading.")
+                }
+
                 Section("Server") {
                     LabeledContent("Address", value: connection.account.baseURL.absoluteString)
                     LabeledContent("Signed in as", value: connection.account.username)
