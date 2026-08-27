@@ -13,6 +13,12 @@ actor CoverLoader {
     private let memory = NSCache<NSString, UIImage>()
     private let directory: URL
     private var inFlight: [String: Task<UIImage?, Never>] = [:]
+    /// Caps how many covers are fetched at once. A fast scroll through a large
+    /// grid would otherwise fire dozens of requests at someone's home server
+    /// and starve the data requests behind them.
+    private let concurrencyLimit = 4
+    private var activeFetches = 0
+    private var waiting: [CheckedContinuation<Void, Never>] = []
 
     init(client: GrimmoryClient, accountID: UUID) {
         self.client = client
@@ -36,6 +42,8 @@ actor CoverLoader {
             return await existing.value
         }
 
+        await acquireSlot()
+
         let task = Task<UIImage?, Never> { [directory, client] in
             let fileURL = directory.appendingPathComponent(key)
             if let data = try? Data(contentsOf: fileURL), let image = UIImage(data: data) {
@@ -51,10 +59,30 @@ actor CoverLoader {
         inFlight[key] = task
         let image = await task.value
         inFlight[key] = nil
+        releaseSlot()
+
         if let image {
             memory.setObject(image, forKey: key as NSString)
         }
         return image
+    }
+
+    private func acquireSlot() async {
+        if activeFetches < concurrencyLimit {
+            activeFetches += 1
+            return
+        }
+        await withCheckedContinuation { continuation in
+            waiting.append(continuation)
+        }
+        activeFetches += 1
+    }
+
+    private func releaseSlot() {
+        activeFetches -= 1
+        if !waiting.isEmpty {
+            waiting.removeFirst().resume()
+        }
     }
 
     /// Drops every cached cover for this account.

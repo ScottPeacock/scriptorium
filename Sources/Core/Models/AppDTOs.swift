@@ -124,7 +124,8 @@ struct AppLibrarySummary: Decodable, Sendable, Identifiable, Hashable {
     let id: Int64
     let name: String?
     let icon: String?
-    let bookCount: Int
+    /// Absent when this came from the fallback endpoint, which doesn't count books.
+    let bookCount: Int?
 }
 
 struct AppShelfSummary: Decodable, Sendable, Identifiable, Hashable {
@@ -215,5 +216,17 @@ struct AppAuthorSummary: Decodable, Sendable, Identifiable, Hashable {
         name = try c.decodeIfPresent(String.self, forKey: .name)
         bookCount = try c.decodeIfPresent(Int.self, forKey: .bookCount) ?? 0
         hasPhoto = try c.decodeIfPresent(Bool.self, forKey: .hasPhoto)
+    }
+}
+
+/// `org.booklore.model.dto.Library` — the web UI's shape. Only the fields the
+/// app needs; it carries no book count.
+struct LibraryFallback: Decodable, Sendable {
+    let id: Int64
+    let name: String?
+    let icon: String?
+
+    var asSummary: AppLibrarySummary {
+        AppLibrarySummary(id: id, name: name, icon: icon, bookCount: nil)
     }
 }

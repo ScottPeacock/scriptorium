@@ -27,8 +27,19 @@ struct LibraryService: Sendable {
         try await client.send(.recentlyAdded(limit: limit))
     }
 
+    /// Grimmory 26.x has a bug in `/api/v1/app/libraries`: the controller isn't
+    /// `@Transactional` and the mapper touches `LibraryEntity.libraryPaths`,
+    /// which is lazy, with `spring.jpa.open-in-view: false`. That throws
+    /// LazyInitializationException and comes back as a 500. The web UI's own
+    /// endpoint works, so fall back to it rather than showing no libraries.
     func libraries() async throws -> [AppLibrarySummary] {
-        try await client.send(.libraries)
+        do {
+            return try await client.send(.libraries)
+        } catch let error as APIError {
+            guard case let .server(status, _) = error, status >= 500 else { throw error }
+            let fallback: [LibraryFallback] = try await client.send(.librariesFallback)
+            return fallback.map(\.asSummary)
+        }
     }
 
     func shelves() async throws -> [AppShelfSummary] {

@@ -40,7 +40,7 @@ struct BookDetailView: View {
 
             actions(book)
 
-            if let description = book.description, !description.isEmpty {
+            if let description = book.description.map(HTMLText.plain(from:)), !description.isEmpty {
                 VStack(alignment: .leading, spacing: 6) {
                     Text("Description").font(.headline)
                     Text(description).font(.callout)

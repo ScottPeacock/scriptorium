@@ -39,6 +39,7 @@ struct ReaderView: View {
                 EmptyView()
             }
         }
+        .toolbar(.hidden, for: .tabBar)
         .statusBarHidden(!model.showChrome)
         .toolbar(model.showChrome ? .visible : .hidden, for: .navigationBar)
         .toolbarBackground(.visible, for: .navigationBar)

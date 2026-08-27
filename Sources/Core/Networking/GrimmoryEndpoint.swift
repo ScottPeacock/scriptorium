@@ -22,8 +22,10 @@ enum GrimmoryEndpoint {
     case version
     case currentUser
 
-    // Browsing
+    /// Browsing
     case libraries
+    /// The web UI's library endpoint, used when the app one 500s.
+    case librariesFallback
     case shelves
     case magicShelves
     case magicShelfBooks(id: Int64, page: Int, size: Int)
@@ -65,6 +67,7 @@ enum GrimmoryEndpoint {
         case .version: "/api/v1/version"
         case .currentUser: "/api/v1/app/users/me"
         case .libraries: "/api/v1/app/libraries"
+        case .librariesFallback: "/api/v1/libraries"
         case .shelves: "/api/v1/app/shelves"
         case .magicShelves: "/api/v1/app/shelves/magic"
         case let .magicShelfBooks(id, _, _): "/api/v1/app/shelves/magic/\(id)/books"

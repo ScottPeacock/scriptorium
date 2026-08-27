@@ -5,6 +5,7 @@ struct HomeView: View {
 
     @State private var continueReading: [AppBookSummary] = []
     @State private var recentlyAdded: [AppBookSummary] = []
+    @State private var fromLibrary: [AppBookSummary] = []
     @State private var errorMessage: String?
     @State private var isLoading = true
 
@@ -30,7 +31,10 @@ struct HomeView: View {
                         if !recentlyAdded.isEmpty {
                             BookRow(title: "Recently added", books: recentlyAdded)
                         }
-                        if continueReading.isEmpty, recentlyAdded.isEmpty {
+                        if !fromLibrary.isEmpty {
+                            BookRow(title: "From your library", books: fromLibrary)
+                        }
+                        if continueReading.isEmpty, recentlyAdded.isEmpty, fromLibrary.isEmpty {
                             ContentUnavailableView(
                                 "Nothing to read yet",
                                 systemImage: "books.vertical",
@@ -60,6 +64,18 @@ struct HomeView: View {
             async let recent = service.recentlyAdded()
             continueReading = try await reading
             recentlyAdded = try await recent
+
+            // The server's "recently added" only looks back 30 days, so an
+            // established library leaves this screen empty and looking broken.
+            // Fall back to the newest books overall, which has no such window.
+            if continueReading.isEmpty, recentlyAdded.isEmpty {
+                var query = BookQuery()
+                query.size = 12
+                query.sort = .addedOn
+                fromLibrary = try await service.books(query).content
+            } else {
+                fromLibrary = []
+            }
         } catch {
             errorMessage = (error as? APIError)?.localizedDescription ?? error.localizedDescription
         }

@@ -82,7 +82,7 @@ struct AuthService: Sendable {
                 throw APIError.unauthorized
             default:
                 let body = try? JSONCoding.decoder.decode(ServerErrorBody.self, from: data)
-                throw APIError.server(status: http.statusCode, message: body?.message ?? body?.error)
+                throw APIError.server(status: http.statusCode, message: body?.displayMessage)
             }
         } catch let error as URLError {
             throw APIError.from(urlError: error)

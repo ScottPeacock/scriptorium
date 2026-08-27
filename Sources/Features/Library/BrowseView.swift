@@ -8,7 +8,9 @@ struct BrowseView: View {
     @State private var libraries: [AppLibrarySummary] = []
     @State private var shelves: [AppShelfSummary] = []
     @State private var magicShelves: [AppMagicShelfSummary] = []
-    @State private var errorMessage: String?
+    // Per-section, so one endpoint failing doesn't hide the others. A 500 on
+    // smart shelves should not blank out your libraries.
+    @State private var failures: [String: String] = [:]
     @State private var isLoading = true
 
     var body: some View {
@@ -31,7 +33,9 @@ struct BrowseView: View {
                         ForEach(libraries) { library in
                             NavigationLink(value: BrowseRoute.library(library.id, library.name ?? "Library")) {
                                 LabeledContent {
-                                    Text("\(library.bookCount)").foregroundStyle(.secondary)
+                                    if let count = library.bookCount {
+                                        Text("\(count)").foregroundStyle(.secondary)
+                                    }
                                 } label: {
                                     Label(library.name ?? "Library", systemImage: "building.columns")
                                 }
@@ -68,10 +72,17 @@ struct BrowseView: View {
                     }
                 }
 
-                if let errorMessage {
+                if !failures.isEmpty {
                     Section {
-                        Label(errorMessage, systemImage: "exclamationmark.triangle")
-                            .foregroundStyle(.red)
+                        ForEach(failures.sorted(by: { $0.key < $1.key }), id: \.key) { section, message in
+                            VStack(alignment: .leading, spacing: 2) {
+                                Label("Couldn't load \(section)", systemImage: "exclamationmark.triangle")
+                                    .foregroundStyle(.red)
+                                Text(message)
+                                    .font(.footnote)
+                                    .foregroundStyle(.secondary)
+                            }
+                        }
                         Button("Try again") { Task { await load() } }
                     }
                 }
@@ -149,19 +160,44 @@ struct BrowseView: View {
     }
 
     private func load() async {
-        errorMessage = nil
         let service = connection.library
-        do {
-            async let libs = service.libraries()
-            async let shelfList = service.shelves()
-            async let magic = service.magicShelves()
-            libraries = try await libs
-            shelves = try await shelfList
-            magicShelves = try await magic
-        } catch {
-            errorMessage = (error as? APIError)?.localizedDescription ?? error.localizedDescription
+        var problems: [String: String] = [:]
+
+        // Each section loads on its own so a failure is contained and named.
+        async let loadedLibraries = Result { try await service.libraries() }
+        async let loadedShelves = Result { try await service.shelves() }
+        async let loadedMagic = Result { try await service.magicShelves() }
+
+        switch await loadedLibraries {
+        case let .success(value): libraries = value
+        case let .failure(error): problems["libraries"] = Self.describe(error)
         }
+        switch await loadedShelves {
+        case let .success(value): shelves = value
+        case let .failure(error): problems["shelves"] = Self.describe(error)
+        }
+        switch await loadedMagic {
+        case let .success(value): magicShelves = value
+        case let .failure(error): problems["smart shelves"] = Self.describe(error)
+        }
+
+        failures = problems
         isLoading = false
+    }
+
+    private static func describe(_ error: any Error) -> String {
+        (error as? APIError)?.localizedDescription ?? error.localizedDescription
+    }
+}
+
+extension Result where Failure == any Error {
+    /// `async let` needs a non-throwing expression to run these concurrently.
+    init(catching body: () async throws -> Success) async {
+        do {
+            self = try await .success(body())
+        } catch {
+            self = .failure(error)
+        }
     }
 }
 

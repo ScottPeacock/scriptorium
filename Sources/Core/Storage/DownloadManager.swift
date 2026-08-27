@@ -55,8 +55,15 @@ final class DownloadManager {
             bookId: bookId,
             fileName: fileName
         )
-        let endpoint: GrimmoryEndpoint = if let fileId = file?.id {
-            .downloadFile(bookId: bookId, fileId: fileId)
+        // /books/{id}/files/{fileId}/download is AdditionalFileController, and it
+        // refuses the primary book file outright — validateAdditionalFile throws
+        // IllegalArgumentException, which Spring returns as a 400. So the
+        // per-file route is only for genuinely supplementary files; the primary
+        // file comes from /books/{id}/download. When we can't tell (isPrimary
+        // absent), take the whole-book route, which is right for the
+        // single-file books that are the common case.
+        let endpoint: GrimmoryEndpoint = if let file, file.isPrimary == false {
+            .downloadFile(bookId: bookId, fileId: file.id)
         } else {
             .downloadBook(bookId: bookId)
         }

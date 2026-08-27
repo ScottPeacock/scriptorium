@@ -13,10 +13,22 @@ actor GrimmoryClient {
     private let session: URLSession
     private var refreshTask: Task<Tokens, Error>?
 
-    init(baseURL: URL, tokenStore: TokenStore, session: URLSession = .shared) {
+    init(baseURL: URL, tokenStore: TokenStore, session: URLSession? = nil) {
         self.baseURL = baseURL
         self.tokenStore = tokenStore
-        self.session = session
+        self.session = session ?? Self.makeSession()
+    }
+
+    /// A self-hosted server can be reachable at the TCP level while not
+    /// answering — a wedged JVM still accepts connections. URLSession's 60s
+    /// default then reads as an app that has hung, so cut it short and let the
+    /// UI say something useful instead.
+    private static func makeSession() -> URLSession {
+        let configuration = URLSessionConfiguration.default
+        configuration.timeoutIntervalForRequest = 20
+        configuration.timeoutIntervalForResource = 300
+        configuration.waitsForConnectivity = false
+        return URLSession(configuration: configuration)
     }
 
     // MARK: - Public surface
@@ -87,13 +99,30 @@ actor GrimmoryClient {
             return try await streamDownload(endpoint, to: destination, allowRefresh: false, progress: progress)
         }
         guard (200 ..< 300).contains(http.statusCode) else {
-            throw http.statusCode == 403 ? APIError.forbidden : APIError.server(
+            if http.statusCode == 403 {
+                throw APIError.forbidden
+            }
+            if http.statusCode == 401 {
+                throw APIError.unauthorized
+            }
+            // The server explains itself in the body; throwing that away leaves
+            // the user staring at a bare status code.
+            throw await APIError.server(
                 status: http.statusCode,
-                message: nil
+                message: Self.errorMessage(from: stream)
             )
         }
 
-        let expected = http.expectedContentLength
+        try await write(stream, to: destination, expecting: http.expectedContentLength, progress: progress)
+    }
+
+    /// Streams bytes to disk in chunks, reporting progress as it goes.
+    private func write(
+        _ stream: URLSession.AsyncBytes,
+        to destination: URL,
+        expecting expected: Int64,
+        progress: @escaping @Sendable (Int64, Int64) -> Void
+    ) async throws {
         let fileManager = FileManager.default
         try? fileManager.removeItem(at: destination)
         try fileManager.createDirectory(
@@ -107,13 +136,14 @@ actor GrimmoryClient {
         let handle = try FileHandle(forWritingTo: destination)
         defer { try? handle.close() }
 
+        let chunkSize = 262_144
         var buffer = Data()
-        buffer.reserveCapacity(262_144)
+        buffer.reserveCapacity(chunkSize)
         var written: Int64 = 0
 
         for try await byte in stream {
             buffer.append(byte)
-            if buffer.count >= 262_144 {
+            if buffer.count >= chunkSize {
                 try handle.write(contentsOf: buffer)
                 written += Int64(buffer.count)
                 buffer.removeAll(keepingCapacity: true)
@@ -153,6 +183,26 @@ actor GrimmoryClient {
         }
 
         return (data, response)
+    }
+
+    /// Reads an error body off a streaming response. Capped, because the body
+    /// on a failed download is a short JSON error, not a book.
+    private static func errorMessage(from stream: URLSession.AsyncBytes) async -> String? {
+        var data = Data()
+        do {
+            for try await byte in stream {
+                data.append(byte)
+                if data.count > 8192 {
+                    break
+                }
+            }
+        } catch {
+            return nil
+        }
+        guard let body = try? JSONCoding.decoder.decode(ServerErrorBody.self, from: data) else {
+            return nil
+        }
+        return body.displayMessage
     }
 
     private func execute(_ request: URLRequest) async throws -> (Data, HTTPURLResponse) {
@@ -252,7 +302,7 @@ actor GrimmoryClient {
             throw endpoint.isAnonymous ? APIError.notGrimmory(status: 404) : APIError.notFound
         default:
             let body = try? JSONCoding.decoder.decode(ServerErrorBody.self, from: data)
-            throw APIError.server(status: response.statusCode, message: body?.message ?? body?.error)
+            throw APIError.server(status: response.statusCode, message: body?.displayMessage)
         }
     }
 }

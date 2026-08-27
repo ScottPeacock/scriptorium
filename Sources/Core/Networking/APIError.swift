@@ -51,11 +51,25 @@ enum APIError: Error, LocalizedError, Equatable {
     }
 }
 
-/// Grimmory's Spring error body, e.g.
-/// `{"timestamp":"...","status":401,"error":"Unauthorized","path":"/api/v1/version"}`
+/// Grimmory returns two shapes: its own `ErrorResponse`
+/// (`{"status":400,"message":"...","details":[...]}`) from GlobalExceptionHandler,
+/// and Spring's default (`{"status":401,"error":"Unauthorized","path":"..."}`)
+/// for anything that never reaches a controller.
 struct ServerErrorBody: Decodable, Sendable {
     let status: Int?
     let error: String?
     let message: String?
     let path: String?
+    let details: [String]?
+
+    /// The most specific thing the server said, or nil if it said nothing useful.
+    var displayMessage: String? {
+        if let message, !message.isEmpty {
+            if let details, !details.isEmpty {
+                return "\(message) (\(details.joined(separator: "; ")))"
+            }
+            return message
+        }
+        return error.flatMap { $0.isEmpty ? nil : $0 }
+    }
 }

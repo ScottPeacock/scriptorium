@@ -153,3 +153,56 @@ struct ReaderSettingsTests {
         #expect(loaded.flow == .paginated)
     }
 }
+
+@Suite("Download endpoint choice")
+struct DownloadEndpointTests {
+    private let base = URL(string: "http://192.168.1.21:6060")!
+
+    /// AdditionalFileController refuses the primary book file:
+    /// validateAdditionalFile throws IllegalArgumentException, which Spring
+    /// returns as a 400. Using it for the main EPUB failed every download.
+    @Test("The primary file uses the whole-book download route")
+    func primaryUsesBookRoute() throws {
+        let url = try #require(GrimmoryEndpoint.downloadBook(bookId: 12).url(base: base))
+        #expect(url.absoluteString == "http://192.168.1.21:6060/api/v1/books/12/download")
+    }
+
+    @Test("A supplementary file uses the per-file route")
+    func additionalUsesFileRoute() throws {
+        let url = try #require(GrimmoryEndpoint.downloadFile(bookId: 12, fileId: 34).url(base: base))
+        #expect(url.absoluteString == "http://192.168.1.21:6060/api/v1/books/12/files/34/download")
+    }
+}
+
+@Suite("Server error bodies")
+struct ServerErrorBodyTests {
+    @Test("Grimmory's own ErrorResponse surfaces its message")
+    func errorResponseShape() throws {
+        let json = Data(#"""
+        {"status":400,"message":"Primary book file cannot be processed as an additional file: 7",
+         "timestamp":"2026-08-27T12:00:00"}
+        """#.utf8)
+        let body = try JSONCoding.decoder.decode(ServerErrorBody.self, from: json)
+        #expect(body.displayMessage?.hasPrefix("Primary book file") == true)
+    }
+
+    @Test("Spring's default shape falls back to its error field")
+    func springShape() throws {
+        let json = Data(#"{"status":401,"error":"Unauthorized","path":"/api/v1/version"}"#.utf8)
+        let body = try JSONCoding.decoder.decode(ServerErrorBody.self, from: json)
+        #expect(body.displayMessage == "Unauthorized")
+    }
+
+    @Test("Validation details are appended to the message")
+    func withDetails() throws {
+        let json = Data(#"{"status":400,"message":"Invalid","details":["rating must be at most 5"]}"#.utf8)
+        let body = try JSONCoding.decoder.decode(ServerErrorBody.self, from: json)
+        #expect(body.displayMessage == "Invalid (rating must be at most 5)")
+    }
+
+    @Test("An empty body yields no message rather than an empty string")
+    func emptyBody() throws {
+        let body = try JSONCoding.decoder.decode(ServerErrorBody.self, from: Data("{}".utf8))
+        #expect(body.displayMessage == nil)
+    }
+}
