@@ -6,7 +6,7 @@ import Security
 struct Keychain: Sendable {
     let service: String
 
-    init(service: String = "com.scottpeacock.scriptorium.tokens") {
+    init(service: String = "pts.Scriptorium.tokens") {
         self.service = service
     }
 

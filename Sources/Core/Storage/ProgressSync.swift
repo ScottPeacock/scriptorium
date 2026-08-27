@@ -188,7 +188,7 @@ final class ProgressSync {
                 }
             }
         }
-        monitor.start(queue: DispatchQueue(label: "com.scottpeacock.scriptorium.network"))
+        monitor.start(queue: DispatchQueue(label: "pts.Scriptorium.network"))
     }
 }
 
