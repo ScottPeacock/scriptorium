@@ -35,8 +35,12 @@ App Store Connect API key — see the comment at the top of the script.
 ## Version and build numbers
 
 `MARKETING_VERSION` in `project.yml` is the version people see; bump it by hand.
-The build number comes from the commit count (`git rev-list --count HEAD`), so it
-always increases. App Store Connect rejects a build number it has already seen.
+The build number is set automatically by a build-phase script (see
+`postBuildScripts` on the `Scriptorium` target in `project.yml`) from a UTC
+timestamp, so it always increases and never needs a manual bump — this
+applies whether you archive from Xcode's GUI or via `Tools/archive.sh`. App
+Store Connect rejects a build number it has already seen, which is also why
+this isn't the git commit count: a squash merge can reduce that number.
 
 ## Before the first external testers
 

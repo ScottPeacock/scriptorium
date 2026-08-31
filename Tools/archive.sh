@@ -15,14 +15,16 @@ set -euo pipefail
 
 cd "$(dirname "$0")/.."
 
-BUILD="${BUILD_NUMBER:-$(git rev-list --count HEAD)}"
 ARCHIVE="build/Scriptorium.xcarchive"
 EXPORT_DIR="build/export"
 
 echo "==> Generating project"
 xcodegen generate
 
-echo "==> Archiving (build $BUILD)"
+# The build number (CFBundleVersion) is set automatically from a timestamp
+# by a build phase in project.yml -- see "Set build number from a
+# timestamp" -- so it doesn't need to be passed in here.
+echo "==> Archiving"
 rm -rf "$ARCHIVE" "$EXPORT_DIR"
 xcodebuild archive \
   -project Scriptorium.xcodeproj \
@@ -30,14 +32,12 @@ xcodebuild archive \
   -destination 'generic/platform=iOS' \
   -archivePath "$ARCHIVE" \
   -allowProvisioningUpdates \
-  CURRENT_PROJECT_VERSION="$BUILD" \
   | xcbeautify 2>/dev/null || xcodebuild archive \
       -project Scriptorium.xcodeproj \
       -scheme Scriptorium \
       -destination 'generic/platform=iOS' \
       -archivePath "$ARCHIVE" \
-      -allowProvisioningUpdates \
-      CURRENT_PROJECT_VERSION="$BUILD"
+      -allowProvisioningUpdates
 
 echo "==> Exporting"
 xcodebuild -exportArchive \

@@ -10,7 +10,12 @@ settings:
   base:
     SWIFT_VERSION: "6.0"
     SWIFT_STRICT_CONCURRENCY: complete
-    ENABLE_USER_SCRIPT_SANDBOXING: YES
+    # Off, not on: Xcode's default for new projects, but it blocks our own
+    # build-number script phase below from writing the built Info.plist (and
+    # there's no per-phase opt-out XcodeGen can express) -- with only that
+    # one trusted, in-repo script phase and no third-party build scripts to
+    # guard against, sandboxing it buys nothing here.
+    ENABLE_USER_SCRIPT_SANDBOXING: NO
     MARKETING_VERSION: "0.1.0"
     CURRENT_PROJECT_VERSION: "2"
 
@@ -35,6 +40,23 @@ targets:
       - path: Support/PrivacyInfo.xcprivacy
     dependencies:
       - package: GRDB
+    postBuildScripts:
+      - name: Set build number from a timestamp
+        # App Store Connect rejects a build number it's already seen, so the
+        # build number always has to increase. A UTC timestamp guarantees
+        # that; git's commit count doesn't, since a squash merge (like the
+        # PRs this project uses) can *reduce* it, which would produce a
+        # build number lower than a previous release.
+        #
+        # Can't declare $(INFOPLIST_PATH) as this phase's output: Xcode's
+        # own Info.plist processing already produces that file, and the new
+        # build system rejects two steps claiming the same output.
+        script: |
+          set -euo pipefail
+          BUILD="$(date -u +%Y%m%d%H%M)"
+          PLIST="${TARGET_BUILD_DIR}/${INFOPLIST_PATH}"
+          /usr/libexec/PlistBuddy -c "Set :CFBundleVersion ${BUILD}" "${PLIST}"
+        basedOnDependencyAnalysis: false
     info:
       path: Support/Info.plist
       properties:
