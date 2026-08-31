@@ -87,8 +87,6 @@ struct ReaderWebView: UIViewRepresentable {
                 }
                 onMessage(.ready(toc: toc, title: body["title"] as? String))
             case "relocate":
-                // TODO(debug): drop once the right-tap page-turn bug is diagnosed.
-                print("[reader-debug] relocate section=\(body["sectionCurrent"] ?? "?")/\(body["sectionTotal"] ?? "?") fraction=\(body["fraction"] ?? "?") cfi=\(body["cfi"] ?? "?")")
                 onMessage(.relocate(ReaderLocation(
                     cfi: body["cfi"] as? String,
                     href: body["href"] as? String,
@@ -97,9 +95,6 @@ struct ReaderWebView: UIViewRepresentable {
                     sectionCurrent: body["sectionCurrent"] as? Int,
                     sectionTotal: body["sectionTotal"] as? Int
                 )))
-            case "debug":
-                // TODO(debug): drop once the right-tap page-turn bug is diagnosed.
-                print("[reader-debug] \(body)")
             case "tap":
                 onMessage(.tap)
             case "showChrome":

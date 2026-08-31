@@ -79,6 +79,14 @@ struct ReaderAssetHandlerTests {
         #expect(source.contains("passive: false, capture: true"))
         #expect(source.contains("suppressNextClick = true"))
         #expect(source.contains("addEventListener('touchmove', event => {"))
+
+        // foliate expands the content iframe's own width to fit a whole
+        // multi-page section (so it can scroll its columns horizontally),
+        // so doc.defaultView.innerWidth is wildly wrong for tap-zone math on
+        // any section longer than one page -- it must read the top-level
+        // page's width instead.
+        #expect(source.contains("const width = window.innerWidth"))
+        #expect(!source.contains("doc.defaultView?.innerWidth"))
     }
 }
 
