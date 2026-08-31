@@ -41,6 +41,10 @@ targets:
         CFBundleDisplayName: Scriptorium
         CFBundleShortVersionString: $(MARKETING_VERSION)
         CFBundleVersion: $(CURRENT_PROJECT_VERSION)
+        # Answers App Store Connect's export-compliance question at upload
+        # time so it stops asking on every build: the app only talks HTTPS
+        # (standard, exempt encryption) and carries no custom crypto.
+        ITSAppUsesNonExemptEncryption: false
         UILaunchScreen: {}
         # iPhone: no upside-down. Modern iPhones don't rotate to it anyway,
         # and a book flipping over in your hands is not a feature.
