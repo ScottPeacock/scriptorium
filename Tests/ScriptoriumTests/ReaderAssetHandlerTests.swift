@@ -95,7 +95,7 @@ struct ReaderAssetHandlerTests {
         // top-level page, so both zone checks must go through it rather
         // than using touch.clientX / event.clientX directly.
         #expect(source.contains("const toViewportX = clientX => {"))
-        #expect(source.contains("toViewportX(rawX)"))
+        #expect(source.contains("toViewportX(touch.clientX)"))
         #expect(source.contains("toViewportX(event.clientX)"))
     }
 }

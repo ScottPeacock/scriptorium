@@ -179,8 +179,7 @@ class Reader {
             // visible page width, on any section longer than one page. The
             // top-level page's width is what's actually on screen.
             const width = window.innerWidth
-            const rawX = touch.clientX
-            const x = toViewportX(rawX)
+            const x = toViewportX(touch.clientX)
             const inLeftZone = this.#style.flow === 'paginated' && width && x <= width * 0.25
             const inRightZone = this.#style.flow === 'paginated' && width && x >= width * 0.75
 
@@ -188,8 +187,6 @@ class Reader {
             if (moved <= TAP_MAX_MOVE_PX) {
                 suppressNextClick = true
                 claimTapGesture(event)
-                const zone = inLeftZone ? 'left' : inRightZone ? 'right' : 'mid'
-                post('debug', { source: 'touchend-tap', rawX, x, width, zone, dx, dy, moved })
                 if (inLeftZone) return this.prev()
                 if (inRightZone) return this.next()
                 return post('tap')
