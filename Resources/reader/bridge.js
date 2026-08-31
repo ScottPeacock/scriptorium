@@ -124,6 +124,20 @@ class Reader {
             event.stopPropagation()
             event.stopImmediatePropagation?.()
         }
+        // Like innerWidth above, clientX/Y on an event from inside this
+        // content document are relative to the iframe's own box -- which
+        // foliate expands to the section's full multi-page width and then
+        // scrolls horizontally inside a clipping container. So the same
+        // physical tap reports a different clientX depending on which page
+        // of the section is currently scrolled into view. The iframe
+        // element's own bounding rect, as seen from the top-level page,
+        // captures exactly that scroll offset (its left edge goes negative
+        // as the container scrolls right), so adding it back recovers the
+        // real on-screen position.
+        const toViewportX = clientX => {
+            const rect = doc.defaultView?.frameElement?.getBoundingClientRect()
+            return rect ? clientX + rect.left : clientX
+        }
         doc.addEventListener('touchstart', event => {
             if (event.touches?.length !== 1) { touchStart = null; return }
             const touch = event.touches[0]
@@ -165,7 +179,8 @@ class Reader {
             // visible page width, on any section longer than one page. The
             // top-level page's width is what's actually on screen.
             const width = window.innerWidth
-            const x = touch.clientX
+            const rawX = touch.clientX
+            const x = toViewportX(rawX)
             const inLeftZone = this.#style.flow === 'paginated' && width && x <= width * 0.25
             const inRightZone = this.#style.flow === 'paginated' && width && x >= width * 0.75
 
@@ -174,7 +189,7 @@ class Reader {
                 suppressNextClick = true
                 claimTapGesture(event)
                 const zone = inLeftZone ? 'left' : inRightZone ? 'right' : 'mid'
-                post('debug', { source: 'touchend-tap', x, width, zone, dx, dy, moved })
+                post('debug', { source: 'touchend-tap', rawX, x, width, zone, dx, dy, moved })
                 if (inLeftZone) return this.prev()
                 if (inRightZone) return this.next()
                 return post('tap')
@@ -199,7 +214,7 @@ class Reader {
                 return
             }
             const width = window.innerWidth
-            const x = event.clientX
+            const x = toViewportX(event.clientX)
             if (this.#style.flow === 'paginated' && width) {
                 if (x <= width * 0.25) {
                     event.preventDefault()

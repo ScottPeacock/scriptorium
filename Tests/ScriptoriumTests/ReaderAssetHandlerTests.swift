@@ -87,6 +87,16 @@ struct ReaderAssetHandlerTests {
         // page's width instead.
         #expect(source.contains("const width = window.innerWidth"))
         #expect(!source.contains("doc.defaultView?.innerWidth"))
+
+        // The same expansion also throws off clientX/Y for events raised
+        // inside the iframe -- they're relative to its own (expanded,
+        // horizontally-scrolled) box, not the screen. toViewportX corrects
+        // that using the iframe element's own bounding rect on the
+        // top-level page, so both zone checks must go through it rather
+        // than using touch.clientX / event.clientX directly.
+        #expect(source.contains("const toViewportX = clientX => {"))
+        #expect(source.contains("toViewportX(rawX)"))
+        #expect(source.contains("toViewportX(event.clientX)"))
     }
 }
 
