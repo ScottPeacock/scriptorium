@@ -173,6 +173,8 @@ class Reader {
             if (moved <= TAP_MAX_MOVE_PX) {
                 suppressNextClick = true
                 claimTapGesture(event)
+                const zone = inLeftZone ? 'left' : inRightZone ? 'right' : 'mid'
+                post('debug', { source: 'touchend-tap', x, width, zone, dx, dy, moved })
                 if (inLeftZone) return this.prev()
                 if (inRightZone) return this.next()
                 return post('tap')
