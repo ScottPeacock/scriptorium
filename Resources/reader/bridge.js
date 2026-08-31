@@ -13,7 +13,7 @@ const post = (type, payload = {}) => {
 
 const SWIPE_DOWN_MIN_PX = 56
 const SWIPE_DOWN_AXIS_RATIO = 1.2
-const TAP_MAX_MOVE_PX = 12
+const TAP_MAX_MOVE_PX = 24
 
 const showError = message => {
     const el = document.getElementById('error')
@@ -117,6 +117,7 @@ class Reader {
         doc.documentElement.dataset.scriptoriumGesturesBound = '1'
 
         let touchStart = null
+        let lastTouchHandledAt = 0
         let suppressNextClickUntil = 0
         doc.addEventListener('touchstart', event => {
             if (event.touches?.length !== 1) return
@@ -141,9 +142,11 @@ class Reader {
 
             // Handle taps from touch directly to avoid fighting synthetic clicks.
             if (moved <= TAP_MAX_MOVE_PX) {
+                lastTouchHandledAt = Date.now()
                 suppressNextClickUntil = Date.now() + 500
                 event.preventDefault()
                 event.stopPropagation()
+                event.stopImmediatePropagation?.()
                 if (inLeftZone) return this.prev()
                 if (inRightZone) return this.next()
                 return post('tap')
@@ -160,6 +163,9 @@ class Reader {
             suppressNextClickUntil = 0
         }, { passive: true })
         doc.addEventListener('click', event => {
+            if (event.sourceCapabilities?.firesTouchEvents || Date.now() - lastTouchHandledAt < 1000) {
+                return
+            }
             if (Date.now() <= suppressNextClickUntil) {
                 suppressNextClickUntil = 0
                 return

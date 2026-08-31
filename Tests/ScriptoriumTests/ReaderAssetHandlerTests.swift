@@ -77,6 +77,7 @@ struct ReaderAssetHandlerTests {
         #expect(source.contains("post('showChrome')"))
         #expect(source.contains("TAP_MAX_MOVE_PX"))
         #expect(source.contains("passive: false, capture: true"))
+        #expect(source.contains("event.sourceCapabilities?.firesTouchEvents"))
     }
 }
 
