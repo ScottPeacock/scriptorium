@@ -59,4 +59,45 @@ struct ReaderAssetHandlerTests {
         #expect(reader.scheme == book.scheme)
         #expect(reader.host == book.host)
     }
+
+    @Test("Reader bridge uses 25/50/25 tap zones and supports swipe-down chrome restore")
+    func bridgeGestureZones() throws {
+        let url = try #require(
+            Bundle(for: ReaderAssetBundleAnchor.self).url(
+                forResource: "bridge",
+                withExtension: "js",
+                subdirectory: "reader"
+            ),
+            "Missing reader/bridge.js in test bundle"
+        )
+        let source = try String(contentsOf: url, encoding: .utf8)
+
+        #expect(source.contains("width * 0.25"))
+        #expect(source.contains("width * 0.75"))
+        #expect(source.contains("post('showChrome')"))
+        #expect(source.contains("TAP_MAX_MOVE_PX"))
+        #expect(source.contains("passive: false, capture: true"))
+        #expect(source.contains("suppressNextClick = true"))
+        #expect(source.contains("addEventListener('touchmove', event => {"))
+
+        // foliate expands the content iframe's own width to fit a whole
+        // multi-page section (so it can scroll its columns horizontally),
+        // so doc.defaultView.innerWidth is wildly wrong for tap-zone math on
+        // any section longer than one page -- it must read the top-level
+        // page's width instead.
+        #expect(source.contains("const width = window.innerWidth"))
+        #expect(!source.contains("doc.defaultView?.innerWidth"))
+
+        // The same expansion also throws off clientX/Y for events raised
+        // inside the iframe -- they're relative to its own (expanded,
+        // horizontally-scrolled) box, not the screen. toViewportX corrects
+        // that using the iframe element's own bounding rect on the
+        // top-level page, so both zone checks must go through it rather
+        // than using touch.clientX / event.clientX directly.
+        #expect(source.contains("const toViewportX = clientX => {"))
+        #expect(source.contains("toViewportX(touch.clientX)"))
+        #expect(source.contains("toViewportX(event.clientX)"))
+    }
 }
+
+private final class ReaderAssetBundleAnchor {}

@@ -97,6 +97,8 @@ struct ReaderWebView: UIViewRepresentable {
                 )))
             case "tap":
                 onMessage(.tap)
+            case "showChrome":
+                onMessage(.showChrome)
             case "error":
                 onMessage(.failed(body["message"] as? String ?? "The book couldn't be opened."))
             default:
@@ -168,6 +170,7 @@ enum ReaderMessage {
     case ready(toc: [TOCEntry], title: String?)
     case relocate(ReaderLocation)
     case tap
+    case showChrome
     case failed(String)
 }
 

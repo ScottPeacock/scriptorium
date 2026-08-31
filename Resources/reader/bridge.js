@@ -11,6 +11,11 @@ const post = (type, payload = {}) => {
     window.webkit?.messageHandlers?.reader?.postMessage({ type, ...payload })
 }
 
+const SWIPE_DOWN_MIN_PX = 56
+const SWIPE_DOWN_AXIS_RATIO = 1.2
+// Comfortable tap jitter tolerance on high-DPI touch screens.
+const TAP_MAX_MOVE_PX = 24
+
 const showError = message => {
     const el = document.getElementById('error')
     el.style.display = 'block'
@@ -109,12 +114,117 @@ class Reader {
     #onLoad({ doc }) {
         // Forward taps so SwiftUI can toggle its chrome: the content lives in
         // an iframe, so gestures never reach the host view on their own.
-        doc?.addEventListener('click', event => {
-            const width = doc.defaultView?.innerWidth ?? 0
-            const x = event.clientX
+        if (!doc || doc.documentElement?.dataset?.scriptoriumGesturesBound === '1') return
+        doc.documentElement.dataset.scriptoriumGesturesBound = '1'
+
+        let touchStart = null
+        let suppressNextClick = false
+        const claimTapGesture = event => {
+            event.preventDefault()
+            event.stopPropagation()
+            event.stopImmediatePropagation?.()
+        }
+        // Like innerWidth above, clientX/Y on an event from inside this
+        // content document are relative to the iframe's own box -- which
+        // foliate expands to the section's full multi-page width and then
+        // scrolls horizontally inside a clipping container. So the same
+        // physical tap reports a different clientX depending on which page
+        // of the section is currently scrolled into view. The iframe
+        // element's own bounding rect, as seen from the top-level page,
+        // captures exactly that scroll offset (its left edge goes negative
+        // as the container scrolls right), so adding it back recovers the
+        // real on-screen position.
+        const toViewportX = clientX => {
+            const rect = doc.defaultView?.frameElement?.getBoundingClientRect()
+            return rect ? clientX + rect.left : clientX
+        }
+        doc.addEventListener('touchstart', event => {
+            if (event.touches?.length !== 1) { touchStart = null; return }
+            const touch = event.touches[0]
+            touchStart = { x: touch.clientX, y: touch.clientY }
+        }, { passive: true })
+        // foliate's own paginator binds touchmove/touchend on this same
+        // document to drive its drag-to-turn-page gesture. Left alone, an
+        // ordinary tap's inevitable pixel or two of jitter still reaches it:
+        // it nudges the page via scrollBy() and marks its drag state dirty,
+        // and since we claim touchend below (blocking its matching cleanup/
+        // snap), that dirty state never gets a chance to resettle before the
+        // next gesture. So while a touch is still within tap tolerance, keep
+        // foliate from seeing it at all; only once it's clearly a real drag
+        // do we step back and let foliate's native handling take over.
+        doc.addEventListener('touchmove', event => {
+            if (!touchStart || event.touches?.length !== 1) return
+            const touch = event.touches[0]
+            const moved = Math.max(
+                Math.abs(touch.clientX - touchStart.x),
+                Math.abs(touch.clientY - touchStart.y)
+            )
+            if (moved <= TAP_MAX_MOVE_PX) claimTapGesture(event)
+        }, { passive: false, capture: true })
+        doc.addEventListener('touchend', event => {
+            if (!touchStart || event.changedTouches?.length !== 1) {
+                touchStart = null
+                return
+            }
+            const touch = event.changedTouches[0]
+            const dx = touch.clientX - touchStart.x
+            const dy = touch.clientY - touchStart.y
+            touchStart = null
+            const moved = Math.max(Math.abs(dx), Math.abs(dy))
+
+            // foliate expands the content iframe's own width to fit an
+            // entire multi-page section's columns (so it can scroll them
+            // horizontally inside a clipping container) -- so
+            // doc.defaultView.innerWidth is that expanded width, not the
+            // visible page width, on any section longer than one page. The
+            // top-level page's width is what's actually on screen.
+            const width = window.innerWidth
+            const x = toViewportX(touch.clientX)
+            const inLeftZone = this.#style.flow === 'paginated' && width && x <= width * 0.25
+            const inRightZone = this.#style.flow === 'paginated' && width && x >= width * 0.75
+
+            // Handle taps from touch directly to avoid fighting synthetic clicks.
+            if (moved <= TAP_MAX_MOVE_PX) {
+                suppressNextClick = true
+                claimTapGesture(event)
+                if (inLeftZone) return this.prev()
+                if (inRightZone) return this.next()
+                return post('tap')
+            }
+
+            // Pulling down should bring UI chrome back while in fullscreen.
+            if (dy > SWIPE_DOWN_MIN_PX && dy > Math.abs(dx) * SWIPE_DOWN_AXIS_RATIO) {
+                suppressNextClick = true
+                post('showChrome')
+            }
+        }, { passive: false, capture: true })
+        doc.addEventListener('touchcancel', () => {
+            touchStart = null
+        }, { passive: true })
+        doc.addEventListener('click', event => {
+            // The synthetic click that follows a handled touch is suppressed
+            // by preventDefault() above, but this is a defense-in-depth
+            // backstop rather than a timing guess: it clears on the very
+            // next click, whenever that arrives.
+            if (suppressNextClick) {
+                suppressNextClick = false
+                return
+            }
+            const width = window.innerWidth
+            const x = toViewportX(event.clientX)
             if (this.#style.flow === 'paginated' && width) {
-                if (x < width * 0.3) { this.prev(); return }
-                if (x > width * 0.7) { this.next(); return }
+                if (x <= width * 0.25) {
+                    event.preventDefault()
+                    event.stopPropagation()
+                    this.prev()
+                    return
+                }
+                if (x >= width * 0.75) {
+                    event.preventDefault()
+                    event.stopPropagation()
+                    this.next()
+                    return
+                }
             }
             post('tap')
         })
