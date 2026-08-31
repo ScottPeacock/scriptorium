@@ -118,12 +118,35 @@ class Reader {
         doc.documentElement.dataset.scriptoriumGesturesBound = '1'
 
         let touchStart = null
-        let suppressNextClickUntil = 0
+        let suppressNextClick = false
+        const claimTapGesture = event => {
+            event.preventDefault()
+            event.stopPropagation()
+            event.stopImmediatePropagation?.()
+        }
         doc.addEventListener('touchstart', event => {
-            if (event.touches?.length !== 1) return
+            if (event.touches?.length !== 1) { touchStart = null; return }
             const touch = event.touches[0]
             touchStart = { x: touch.clientX, y: touch.clientY }
         }, { passive: true })
+        // foliate's own paginator binds touchmove/touchend on this same
+        // document to drive its drag-to-turn-page gesture. Left alone, an
+        // ordinary tap's inevitable pixel or two of jitter still reaches it:
+        // it nudges the page via scrollBy() and marks its drag state dirty,
+        // and since we claim touchend below (blocking its matching cleanup/
+        // snap), that dirty state never gets a chance to resettle before the
+        // next gesture. So while a touch is still within tap tolerance, keep
+        // foliate from seeing it at all; only once it's clearly a real drag
+        // do we step back and let foliate's native handling take over.
+        doc.addEventListener('touchmove', event => {
+            if (!touchStart || event.touches?.length !== 1) return
+            const touch = event.touches[0]
+            const moved = Math.max(
+                Math.abs(touch.clientX - touchStart.x),
+                Math.abs(touch.clientY - touchStart.y)
+            )
+            if (moved <= TAP_MAX_MOVE_PX) claimTapGesture(event)
+        }, { passive: false, capture: true })
         doc.addEventListener('touchend', event => {
             if (!touchStart || event.changedTouches?.length !== 1) {
                 touchStart = null
@@ -142,10 +165,8 @@ class Reader {
 
             // Handle taps from touch directly to avoid fighting synthetic clicks.
             if (moved <= TAP_MAX_MOVE_PX) {
-                suppressNextClickUntil = Date.now() + 500
-                event.preventDefault()
-                event.stopPropagation()
-                event.stopImmediatePropagation?.()
+                suppressNextClick = true
+                claimTapGesture(event)
                 if (inLeftZone) return this.prev()
                 if (inRightZone) return this.next()
                 return post('tap')
@@ -153,17 +174,20 @@ class Reader {
 
             // Pulling down should bring UI chrome back while in fullscreen.
             if (dy > SWIPE_DOWN_MIN_PX && dy > Math.abs(dx) * SWIPE_DOWN_AXIS_RATIO) {
-                suppressNextClickUntil = Date.now() + 500
+                suppressNextClick = true
                 post('showChrome')
             }
         }, { passive: false, capture: true })
         doc.addEventListener('touchcancel', () => {
             touchStart = null
-            suppressNextClickUntil = 0
         }, { passive: true })
         doc.addEventListener('click', event => {
-            if (Date.now() <= suppressNextClickUntil) {
-                suppressNextClickUntil = 0
+            // The synthetic click that follows a handled touch is suppressed
+            // by preventDefault() above, but this is a defense-in-depth
+            // backstop rather than a timing guess: it clears on the very
+            // next click, whenever that arrives.
+            if (suppressNextClick) {
+                suppressNextClick = false
                 return
             }
             const width = doc.defaultView?.innerWidth ?? 0

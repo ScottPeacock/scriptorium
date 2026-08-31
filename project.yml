@@ -81,6 +81,11 @@ targets:
         excludes: ["Fixtures/**"]
       - path: Tests/ScriptoriumTests/Fixtures
         buildPhase: resources
+      # So ReaderAssetHandlerTests can assert against the real bridge.js
+      # rather than a copy that can drift from what actually ships.
+      - path: Resources/reader
+        type: folder
+        buildPhase: resources
     dependencies:
       - target: Scriptorium
     settings:
