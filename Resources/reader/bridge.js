@@ -109,12 +109,42 @@ class Reader {
     #onLoad({ doc }) {
         // Forward taps so SwiftUI can toggle its chrome: the content lives in
         // an iframe, so gestures never reach the host view on their own.
+        let touchStart = null
+        doc?.addEventListener('touchstart', event => {
+            if (event.touches?.length !== 1) return
+            const touch = event.touches[0]
+            touchStart = { x: touch.clientX, y: touch.clientY }
+        }, { passive: true })
+        doc?.addEventListener('touchend', event => {
+            if (!touchStart || event.changedTouches?.length !== 1) {
+                touchStart = null
+                return
+            }
+            const touch = event.changedTouches[0]
+            const dx = touch.clientX - touchStart.x
+            const dy = touch.clientY - touchStart.y
+            touchStart = null
+            // Pulling down should bring UI chrome back while in fullscreen.
+            if (dy > 56 && Math.abs(dy) > Math.abs(dx) * 1.2) {
+                post('showChrome')
+            }
+        }, { passive: true })
         doc?.addEventListener('click', event => {
             const width = doc.defaultView?.innerWidth ?? 0
             const x = event.clientX
             if (this.#style.flow === 'paginated' && width) {
-                if (x < width * 0.3) { this.prev(); return }
-                if (x > width * 0.7) { this.next(); return }
+                if (x <= width * 0.25) {
+                    event.preventDefault()
+                    event.stopPropagation()
+                    this.prev()
+                    return
+                }
+                if (x >= width * 0.75) {
+                    event.preventDefault()
+                    event.stopPropagation()
+                    this.next()
+                    return
+                }
             }
             post('tap')
         })

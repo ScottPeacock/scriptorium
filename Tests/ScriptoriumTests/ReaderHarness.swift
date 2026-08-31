@@ -114,6 +114,8 @@ final class ReaderHarness {
                 failure = message
             case .tap:
                 break
+            case .showChrome:
+                break
             }
         }
     }

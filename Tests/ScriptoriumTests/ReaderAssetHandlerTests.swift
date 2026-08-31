@@ -59,4 +59,23 @@ struct ReaderAssetHandlerTests {
         #expect(reader.scheme == book.scheme)
         #expect(reader.host == book.host)
     }
+
+    @Test("Reader bridge uses 25/50/25 tap zones and supports swipe-down chrome restore")
+    func bridgeGestureZones() throws {
+        let url = try #require(
+            Bundle(for: ReaderAssetBundleAnchor.self).url(
+                forResource: "bridge",
+                withExtension: "js",
+                subdirectory: "reader"
+            ),
+            "Missing reader/bridge.js in test bundle"
+        )
+        let source = try String(contentsOf: url, encoding: .utf8)
+
+        #expect(source.contains("width * 0.25"))
+        #expect(source.contains("width * 0.75"))
+        #expect(source.contains("post('showChrome')"))
+    }
 }
+
+private final class ReaderAssetBundleAnchor {}

@@ -126,6 +126,8 @@ final class ReaderViewModel {
             scheduleProgressWrite(location)
         case .tap:
             showChrome.toggle()
+        case .showChrome:
+            showChrome = true
         case let .failed(message):
             phase = .failed(message)
         }
