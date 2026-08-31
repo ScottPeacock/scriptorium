@@ -167,6 +167,8 @@ class Reader {
             if (moved <= TAP_MAX_MOVE_PX) {
                 suppressNextClick = true
                 claimTapGesture(event)
+                const zone = inLeftZone ? 'left' : inRightZone ? 'right' : 'mid'
+                post('debug', { source: 'touchend-tap', x, width, zone })
                 if (inLeftZone) return this.prev()
                 if (inRightZone) return this.next()
                 return post('tap')
@@ -188,6 +190,7 @@ class Reader {
             // next click, whenever that arrives.
             if (suppressNextClick) {
                 suppressNextClick = false
+                post('debug', { source: 'click', suppressed: true })
                 return
             }
             const width = doc.defaultView?.innerWidth ?? 0
@@ -196,16 +199,19 @@ class Reader {
                 if (x <= width * 0.25) {
                     event.preventDefault()
                     event.stopPropagation()
+                    post('debug', { source: 'click', x, width, zone: 'left' })
                     this.prev()
                     return
                 }
                 if (x >= width * 0.75) {
                     event.preventDefault()
                     event.stopPropagation()
+                    post('debug', { source: 'click', x, width, zone: 'right' })
                     this.next()
                     return
                 }
             }
+            post('debug', { source: 'click', x, width, zone: 'mid' })
             post('tap')
         })
     }
