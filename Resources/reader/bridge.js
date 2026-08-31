@@ -11,6 +11,9 @@ const post = (type, payload = {}) => {
     window.webkit?.messageHandlers?.reader?.postMessage({ type, ...payload })
 }
 
+const SWIPE_DOWN_MIN_PX = 56
+const SWIPE_DOWN_AXIS_RATIO = 1.2
+
 const showError = message => {
     const el = document.getElementById('error')
     el.style.display = 'block'
@@ -109,13 +112,17 @@ class Reader {
     #onLoad({ doc }) {
         // Forward taps so SwiftUI can toggle its chrome: the content lives in
         // an iframe, so gestures never reach the host view on their own.
+        if (!doc || doc.documentElement?.dataset?.scriptoriumGesturesBound === '1') return
+        doc.documentElement.dataset.scriptoriumGesturesBound = '1'
+
         let touchStart = null
-        doc?.addEventListener('touchstart', event => {
+        let suppressNextClickUntil = 0
+        doc.addEventListener('touchstart', event => {
             if (event.touches?.length !== 1) return
             const touch = event.touches[0]
             touchStart = { x: touch.clientX, y: touch.clientY }
         }, { passive: true })
-        doc?.addEventListener('touchend', event => {
+        doc.addEventListener('touchend', event => {
             if (!touchStart || event.changedTouches?.length !== 1) {
                 touchStart = null
                 return
@@ -125,11 +132,20 @@ class Reader {
             const dy = touch.clientY - touchStart.y
             touchStart = null
             // Pulling down should bring UI chrome back while in fullscreen.
-            if (dy > 56 && Math.abs(dy) > Math.abs(dx) * 1.2) {
+            if (dy > SWIPE_DOWN_MIN_PX && dy > Math.abs(dx) * SWIPE_DOWN_AXIS_RATIO) {
+                suppressNextClickUntil = Date.now() + 500
                 post('showChrome')
             }
         }, { passive: true })
-        doc?.addEventListener('click', event => {
+        doc.addEventListener('touchcancel', () => {
+            touchStart = null
+            suppressNextClickUntil = 0
+        }, { passive: true })
+        doc.addEventListener('click', event => {
+            if (Date.now() <= suppressNextClickUntil) {
+                suppressNextClickUntil = 0
+                return
+            }
             const width = doc.defaultView?.innerWidth ?? 0
             const x = event.clientX
             if (this.#style.flow === 'paginated' && width) {
