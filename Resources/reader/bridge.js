@@ -13,6 +13,7 @@ const post = (type, payload = {}) => {
 
 const SWIPE_DOWN_MIN_PX = 56
 const SWIPE_DOWN_AXIS_RATIO = 1.2
+const TAP_MAX_MOVE_PX = 12
 
 const showError = message => {
     const el = document.getElementById('error')
@@ -131,12 +132,29 @@ class Reader {
             const dx = touch.clientX - touchStart.x
             const dy = touch.clientY - touchStart.y
             touchStart = null
+            const moved = Math.max(Math.abs(dx), Math.abs(dy))
+
+            const width = doc.defaultView?.innerWidth ?? 0
+            const x = touch.clientX
+            const inLeftZone = this.#style.flow === 'paginated' && width && x <= width * 0.25
+            const inRightZone = this.#style.flow === 'paginated' && width && x >= width * 0.75
+
+            // Handle taps from touch directly to avoid fighting synthetic clicks.
+            if (moved <= TAP_MAX_MOVE_PX) {
+                suppressNextClickUntil = Date.now() + 500
+                event.preventDefault()
+                event.stopPropagation()
+                if (inLeftZone) return this.prev()
+                if (inRightZone) return this.next()
+                return post('tap')
+            }
+
             // Pulling down should bring UI chrome back while in fullscreen.
             if (dy > SWIPE_DOWN_MIN_PX && dy > Math.abs(dx) * SWIPE_DOWN_AXIS_RATIO) {
                 suppressNextClickUntil = Date.now() + 500
                 post('showChrome')
             }
-        }, { passive: true })
+        }, { passive: false, capture: true })
         doc.addEventListener('touchcancel', () => {
             touchStart = null
             suppressNextClickUntil = 0
